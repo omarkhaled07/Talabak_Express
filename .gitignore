@@ -43,3 +43,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+android/app/*.json
+android/app/talabak-express-firebase-adminsdk-fbsvc-16bbc2474e.json
