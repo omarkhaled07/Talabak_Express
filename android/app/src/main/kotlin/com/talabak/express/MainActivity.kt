@@ -1,4 +1,4 @@
-package com.example.talabak_express
+package com.talabak.express
 
 import io.flutter.embedding.android.FlutterActivity
 
