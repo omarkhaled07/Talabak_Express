@@ -442,10 +442,10 @@ class _CartScreenState extends State<CartScreen> {
       await orderRef.update({'orderId': orderRef.id});
 
       await NotificationService.sendAdminNotification(
-        'طلب مطعم جديد',
-        'تم استلام طلب مطعم جديد رقم #${orderRef.id}',
+        'طلب جديد',
+        'تم استلام طلب جديد رقم #${orderRef.id}',
         orderRef.id,
-        'restaurant',
+        'restaurant', // أو 'delivery' أو 'pharmacy' حسب نوع الطلب
       );
 
       String? userToken;
@@ -462,9 +462,9 @@ class _CartScreenState extends State<CartScreen> {
         await NotificationService.sendUserNotification(
           _auth.currentUser!.uid,
           'تم استلام طلبك',
-          'شكراً لك! تم استلام طلب المطعم رقم #${orderRef.id}',
+          'شكراً لك! تم استلام طلبك رقم #${orderRef.id}',
           orderRef.id,
-          'restaurant',
+          'restaurant', // أو 'delivery' أو 'pharmacy' حسب نوع الطلب
         );
       }
 

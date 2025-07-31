@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -28,15 +25,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -51,7 +42,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCGWtkmbQibf3gfNfudx5seWejnOV1sNvw',
-    appId: '1:124219820643:android:681351865c6fdaac1b0656',
+    appId: '1:124219820643:android:c21351d4e04ff71e1b0656',
     messagingSenderId: '124219820643',
     projectId: 'talabak-express',
     storageBucket: 'talabak-express.firebasestorage.app',
@@ -59,11 +50,40 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCUyg8VGqYKlejGOT4Vwhd-NXVsgRO0ajM',
+    appId: '1:124219820643:ios:020dcc9a0f2cfc2d1b0656',
+    messagingSenderId: '124219820643',
+    projectId: 'talabak-express',
+    storageBucket: 'talabak-express.firebasestorage.app',
+    iosBundleId: 'com.talabak.express',
+  );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAHF5DDGtoTFuU0CgorEFOizfNaOX3ojko',
+    appId: '1:124219820643:web:e8fa7df66903adac1b0656',
+    messagingSenderId: '124219820643',
+    projectId: 'talabak-express',
+    authDomain: 'talabak-express.firebaseapp.com',
+    storageBucket: 'talabak-express.firebasestorage.app',
+    measurementId: 'G-4M6B096ZQM',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyCUyg8VGqYKlejGOT4Vwhd-NXVsgRO0ajM',
     appId: '1:124219820643:ios:93d83518e1ce94f91b0656',
     messagingSenderId: '124219820643',
     projectId: 'talabak-express',
     storageBucket: 'talabak-express.firebasestorage.app',
     iosBundleId: 'com.example.talabakExpress',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyAHF5DDGtoTFuU0CgorEFOizfNaOX3ojko',
+    appId: '1:124219820643:web:70be2129cbbc84aa1b0656',
+    messagingSenderId: '124219820643',
+    projectId: 'talabak-express',
+    authDomain: 'talabak-express.firebaseapp.com',
+    storageBucket: 'talabak-express.firebasestorage.app',
+    measurementId: 'G-FPLTCW94Q8',
   );
 
 }

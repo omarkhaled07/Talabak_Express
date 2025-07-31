@@ -13,6 +13,8 @@ import '../Service/notification_service.dart';
 import 'map_bounds.dart';
 import 'map_constants.dart';
 import 'map_utils.dart';
+final FirebaseAuth _auth = FirebaseAuth.instance;
+
 
 class PharmacyDetailsScreen extends StatefulWidget {
   final String pharmacyId;
@@ -412,18 +414,18 @@ class _PharmacyDetailsScreenState extends State<PharmacyDetailsScreen> {
       await batch.commit();
 
       await NotificationService.sendAdminNotification(
-        'طلب صيدلية جديد',
-        'تم استلام طلب صيدلية جديد رقم #${orderRef.id}',
+        'طلب جديد',
+        'تم استلام طلب جديد رقم #${orderRef.id}',
         orderRef.id,
-        'pharmacy',
+        'restaurant', // أو 'delivery' أو 'pharmacy' حسب نوع الطلب
       );
 
       await NotificationService.sendUserNotification(
-        currentUser.uid,
+        _auth.currentUser!.uid,
         'تم استلام طلبك',
-        'شكراً لك! تم استلام طلبك رقم #${orderRef.id} وسيتم معالجته قريباً',
+        'شكراً لك! تم استلام طلبك رقم #${orderRef.id}',
         orderRef.id,
-        'pharmacy',
+        'restaurant', // أو 'delivery' أو 'pharmacy' حسب نوع الطلب
       );
 
       Fluttertoast.showToast(

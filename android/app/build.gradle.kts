@@ -16,7 +16,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.talabak_express"
+    namespace = "com.talabak.express"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 

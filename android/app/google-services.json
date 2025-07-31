@@ -45,9 +45,9 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:124219820643:android:681351865c6fdaac1b0656",
+        "mobilesdk_app_id": "1:124219820643:android:c21351d4e04ff71e1b0656",
         "android_client_info": {
-          "package_name": "com.example.talabak_express"
+          "package_name": "com.talabak.express"
         }
       },
       "oauth_client": [],

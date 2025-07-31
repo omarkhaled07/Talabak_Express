@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'Service/notification_service.dart';
 import 'firebase_options.dart';
 import 'screens/admin/admin_screen.dart';
 import 'screens/welcome_screen.dart';
@@ -40,11 +41,8 @@ Future<void> main() async {
       await AndroidGoogleMapsFlutter.useAndroidViewSurface;
     }
 
-    // Initialize FCM
-    await _initializeFirebaseMessaging();
-
-    // Initialize Local Notifications
-    await _initializeLocalNotifications();
+    // Initialize Notification Service
+    await NotificationService.initialize();
 
     runApp(const MyApp());
   } catch (e) {
@@ -52,6 +50,7 @@ Future<void> main() async {
     runApp(const ErrorApp());
   }
 }
+
 
 Future<void> _initializeLocalNotifications() async {
   const AndroidInitializationSettings initializationSettingsAndroid =

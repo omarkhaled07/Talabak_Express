@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../Service/notification_service.dart';
 import 'map_picker_screen.dart';
 import 'map_utils.dart';
+final FirebaseAuth _auth = FirebaseAuth.instance;
 
 class DeliveryScreen extends StatefulWidget {
   const DeliveryScreen({Key? key}) : super(key: key);
@@ -241,18 +242,18 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       );
 
       await NotificationService.sendAdminNotification(
-        'طلب توصيل جديد',
-        'تم استلام طلب توصيل جديد رقم #${orderRef.id}',
+        'طلب جديد',
+        'تم استلام طلب جديد رقم #${orderRef.id}',
         orderRef.id,
-        'delivery',
+        'restaurant', // أو 'delivery' أو 'pharmacy' حسب نوع الطلب
       );
 
       await NotificationService.sendUserNotification(
-        user.uid,
+        _auth.currentUser!.uid,
         'تم استلام طلبك',
-        'شكراً لك! تم استلام طلب التوصيل رقم #${orderRef.id}',
+        'شكراً لك! تم استلام طلبك رقم #${orderRef.id}',
         orderRef.id,
-        'delivery',
+        'restaurant', // أو 'delivery' أو 'pharmacy' حسب نوع الطلب
       );
 
       notesController.clear();

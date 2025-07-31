@@ -1,434 +1,374 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:cached_network_image/cached_network_image.dart';
-import 'dart:convert';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
-  _ProfileScreenState createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _emailController;
-  late TextEditingController _phoneController;
-  File? _imageFile;
-  String? _imageUrl;
-  bool _isLoading = false;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   bool _isEditing = false;
+  bool _isLoading = false;
+  Map<String, dynamic>? _userData;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
-    _emailController = TextEditingController();
-    _phoneController = TextEditingController();
     _loadUserData();
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUserData() async {
-    setState(() => _isLoading = true);
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _auth.currentUser;
     if (user != null) {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>;
-        _nameController.text = data['name'] ?? '';
-        _emailController.text = data['email'] ?? '';
-        _phoneController.text = data['phone'] ?? '';
-        _imageUrl = data['profileImage'] ?? '';
-      }
-    }
-    setState(() => _isLoading = false);
-  }
-
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
-      });
-      await _uploadImageToImgBB();
-    }
-  }
-
-  Future<void> _uploadImageToImgBB() async {
-    if (_imageFile == null) return;
-
-    setState(() => _isLoading = true);
-
-    const apiKey = 'YOUR_IMGBB_API_KEY'; // استبدل بمفتاح API الخاص بك
-    final uri = Uri.parse('https://api.imgbb.com/1/upload?key=$apiKey');
-    final request = http.MultipartRequest('POST', uri);
-
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'image',
-        _imageFile!.path,
-      ),
-    );
-
-    try {
-      final response = await request.send();
-      final responseData = await response.stream.toBytes();
-      final result = String.fromCharCodes(responseData);
-      final jsonResult = jsonDecode(result);
-
-      if (jsonResult['success'] == true) {
-        setState(() {
-          _imageUrl = jsonResult['data']['url'];
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل رفع الصورة: ${e.toString()}')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _updateProfile() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user != null) {
+      setState(() => _isLoading = true);
       try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-          'name': _nameController.text,
-          'phone': _phoneController.text,
-          if (_imageUrl != null) 'profileImage': _imageUrl,
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم تحديث الملف الشخصي بنجاح')),
-        );
-
-        setState(() => _isEditing = false);
+        final doc = await _firestore.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          setState(() {
+            _userData = doc.data();
+            _nameController.text = _userData?['name'] ?? '';
+            _phoneController.text = _userData?['phone'] ?? '';
+          });
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('حدث خطأ: ${e.toString()}')),
-        );
+        Fluttertoast.showToast(msg: 'خطأ في تحميل البيانات: ${e.toString()}');
       } finally {
         setState(() => _isLoading = false);
       }
     }
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    super.dispose();
+  Future<void> _updateUserData() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      Fluttertoast.showToast(msg: 'لا يوجد مستخدم مسجل الدخول');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await _firestore.collection('users').doc(user.uid).update({
+        'name': _nameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      setState(() => _isEditing = false);
+      Fluttertoast.showToast(msg: 'تم تحديث البيانات بنجاح');
+    } catch (e) {
+      Fluttertoast.showToast(msg: 'خطأ في تحديث البيانات: ${e.toString()}');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      Fluttertoast.showToast(msg: 'لا يوجد مستخدم مسجل الدخول');
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'حذف الحساب',
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.rtl,
+        ),
+        content: const Text(
+          'هل أنت متأكد من حذف حسابك؟ سيتم حذف جميع بياناتك نهائيًا ولا يمكن استرجاعها.',
+          textDirection: TextDirection.rtl,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء', style: TextStyle(color: Colors.blue)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final batch = _firestore.batch();
+      final userDoc = _firestore.collection('users').doc(user.uid);
+      batch.delete(userDoc);
+
+      final orders = await _firestore
+          .collection('orders')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+      for (var doc in orders.docs) {
+        batch.delete(doc.reference);
+      }
+
+      final notifications = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+      for (var doc in notifications.docs) {
+        batch.delete(doc.reference);
+      }
+
+      final userOrders = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('orders')
+          .get();
+      for (var doc in userOrders.docs) {
+        batch.delete(doc.reference);
+      }
+
+      await batch.commit();
+      await user.delete();
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+            (route) => false,
+      );
+
+      Fluttertoast.showToast(
+        msg: 'تم حذف الحساب بنجاح',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+      );
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'حدث خطأ أثناء حذف الحساب: ${e.toString()}',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _logout() async {
+    try {
+      await _auth.signOut();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+            (route) => false,
+      );
+      Fluttertoast.showToast(msg: 'تم تسجيل الخروج بنجاح');
+    } catch (e) {
+      Fluttertoast.showToast(msg: 'خطأ في تسجيل الخروج: ${e.toString()}');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = _auth.currentUser;
+
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('الملف الشخصي'),
-        actions: [
-          IconButton(
-            icon: Icon(_isEditing ? Icons.save : Icons.edit),
-            onPressed: () {
-              if (_isEditing) {
-                _updateProfile();
-              } else {
-                setState(() => _isEditing = true);
-              }
-            },
-          ),
-        ],
+        title: const Text('الملف الشخصي', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xff112b16),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        elevation: 5,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              // صورة الملف الشخصي
-              GestureDetector(
-                onTap: _isEditing ? _pickImage : null,
-                child: Stack(
-                  alignment: Alignment.bottomRight,
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // User Info Card
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
                   children: [
                     CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.grey[200],
-                      backgroundImage: _imageUrl != null && _imageUrl!.isNotEmpty
-                          ? CachedNetworkImageProvider(_imageUrl!)
-                          : _imageFile != null
-                          ? FileImage(_imageFile!)
-                          : null,
-                      child: _imageUrl == null && _imageFile == null
-                          ? const Icon(Icons.person, size: 60)
-                          : null,
-                    ),
-                    if (_isEditing)
-                      const CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Colors.deepOrange,
-                        child: Icon(Icons.camera_alt, color: Colors.white),
+                      radius: 40,
+                      backgroundColor: Colors.amber[400],
+                      child: Text(
+                        user?.email?.substring(0, 1).toUpperCase() ?? 'U',
+                        style: const TextStyle(
+                          fontSize: 32,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _userData?['name'] ?? user?.email ?? 'مستخدم مجهول',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xff112b16),
+                      ),
+                      textDirection: TextDirection.rtl,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      user?.email ?? 'لا يوجد بريد إلكتروني',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
+                      textDirection: TextDirection.rtl,
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // معلومات المستخدم
-              _buildEditableField(
-                label: 'الاسم',
-                controller: _nameController,
-                icon: Icons.person,
-                enabled: _isEditing,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'الرجاء إدخال الاسم';
-                  }
-                  return null;
-                },
-              ),
-
-              _buildEditableField(
-                label: 'البريد الإلكتروني',
-                controller: _emailController,
-                icon: Icons.email,
-                enabled: false, // لا يمكن تعديل البريد الإلكتروني
-              ),
-
-              _buildEditableField(
-                label: 'رقم الهاتف',
-                controller: _phoneController,
-                icon: Icons.phone,
-                enabled: _isEditing,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'الرجاء إدخال رقم الهاتف';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 20),
-
-              // قسم العناوين
-              _buildSectionTitle('العناوين المسجلة'),
-              _buildAddressesSection(),
-
-              // قسم الطلبات الأخيرة
-              _buildSectionTitle('طلباتي الأخيرة'),
-              _buildOrdersSection(),
-
-              // قسم المفضلة
-              _buildSectionTitle('المفضلة'),
-              _buildFavoritesSection(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEditableField({
-    required String label,
-    required TextEditingController controller,
-    required IconData icon,
-    bool enabled = true,
-    String? Function(String?)? validator,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: TextFormField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          filled: !enabled,
-          fillColor: Colors.grey[100],
-        ),
-        enabled: enabled,
-        validator: validator,
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
             ),
-          ),
-          const Spacer(),
-          if (_isEditing && title == 'العناوين المسجلة')
-            IconButton(
-              icon: const Icon(Icons.add, color: Colors.deepOrange),
-              onPressed: () {
-                // إضافة عنوان جديد
-              },
-            ),
-        ],
-      ),
-    );
-  }
+            const SizedBox(height: 24),
 
-  Widget _buildAddressesSection() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser?.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const CircularProgressIndicator();
-        }
-
-        final addresses = snapshot.data?['addresses'] as List? ?? [];
-
-        if (addresses.isEmpty) {
-          return const Text('لا توجد عناوين مسجلة');
-        }
-
-        return Column(
-          children: addresses.map<Widget>((address) {
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                title: Text(address['title'] ?? 'عنوان غير معروف'),
-                subtitle: Text(address['fullAddress'] ?? ''),
-                trailing: _isEditing
-                    ? IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () {
-                    // حذف العنوان
-                  },
-                )
-                    : null,
+            // Edit Profile Section
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  Widget _buildOrdersSection() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('orders')
-          .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-          .orderBy('createdAt', descending: true)
-          .limit(3)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const CircularProgressIndicator();
-        }
-
-        final orders = snapshot.data!.docs;
-
-        if (orders.isEmpty) {
-          return const Text('لا توجد طلبات سابقة');
-        }
-
-        return Column(
-          children: orders.map<Widget>((doc) {
-            final order = doc.data() as Map<String, dynamic>;
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                title: Text('طلب #${doc.id.substring(0, 6)}'),
-                subtitle: Text('${order['total']} ج.م - ${order['status']}'),
-                trailing: const Icon(Icons.chevron_left),
-                onTap: () {
-                  // عرض تفاصيل الطلب
-                },
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  Widget _buildFavoritesSection() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser?.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const CircularProgressIndicator();
-        }
-
-        final favorites = snapshot.data?['favorites'] as List? ?? [];
-
-        if (favorites.isEmpty) {
-          return const Text('لا توجد عناصر في المفضلة');
-        }
-
-        return SizedBox(
-          height: 120,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: favorites.length,
-            itemBuilder: (context, index) {
-              final item = favorites[index];
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Card(
-                  child: SizedBox(
-                    width: 100,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.favorite, color: Colors.red),
-                        const SizedBox(height: 8),
-                        Text(
-                          item['name'] ?? 'غير معروف',
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        const Text(
+                          'تعديل الملف الشخصي',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xff112b16),
+                          ),
+                          textDirection: TextDirection.rtl,
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _isEditing ? Icons.save : Icons.edit,
+                            color: Colors.amber[400],
+                          ),
+                          onPressed: () {
+                            if (_isEditing) {
+                              _updateUserData();
+                            } else {
+                              setState(() => _isEditing = true);
+                            }
+                          },
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _nameController,
+                      enabled: _isEditing,
+                      decoration: InputDecoration(
+                        labelText: 'الاسم',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      textDirection: TextDirection.rtl,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _phoneController,
+                      enabled: _isEditing,
+                      decoration: InputDecoration(
+                        labelText: 'رقم الهاتف',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      keyboardType: TextInputType.phone,
+                      textDirection: TextDirection.rtl,
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
-        );
-      },
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Account Actions
+            ElevatedButton(
+              onPressed: _logout,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'تسجيل الخروج',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+                textDirection: TextDirection.rtl,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _deleteAccount,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[700],
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'حذف الحساب',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+                textDirection: TextDirection.rtl,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
     );
   }
 }
