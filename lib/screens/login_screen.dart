@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _isResettingPassword = false;
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
@@ -74,26 +75,71 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _resetPassword() async {
-    if (_emailController.text.isEmpty) {
+  Future<void> _resetPassword() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('يرجى إدخال البريد الإلكتروني')),
       );
       return;
     }
 
-    try {
-      await _auth.sendPasswordResetEmail(email: _emailController.text.trim());
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تم إرسال رابط إعادة التعيين إلى بريدك')),
+        SnackBar(content: Text('بريد إلكتروني غير صالح')),
+      );
+      return;
+    }
+
+    try {
+      setState(() => _isResettingPassword = true);
+
+      debugPrint('جاري إرسال رابط إعادة التعيين إلى: $email');
+
+      await _auth.sendPasswordResetEmail(email: email);
+
+      debugPrint('تم إرسال الرابط بنجاح');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تم إرسال رابط إعادة تعيين كلمة المرور إلى $email'),
+          duration: Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+    } on FirebaseAuthException catch (e) {
+      debugPrint('خطأ Firebase: ${e.code} - ${e.message}');
+
+      String errorMessage = 'فشل إرسال الرابط';
+      if (e.code == 'user-not-found') {
+        errorMessage = 'البريد الإلكتروني غير مسجل في النظام';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'بريد إلكتروني غير صالح';
+      } else if (e.code == 'missing-android-pkg-name') {
+        errorMessage = 'يجب تهيئة تطبيق Android في Firebase Console';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          duration: Duration(seconds: 5),
+        ),
       );
     } catch (e) {
+      debugPrint('خطأ غير متوقع: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل إرسال الرابط. يرجى المحاولة لاحقاً')),
+        SnackBar(
+          content: Text('حدث خطأ غير متوقع: ${e.toString()}'),
+          duration: Duration(seconds: 5),
+        ),
       );
+    } finally {
+      if (mounted) setState(() => _isResettingPassword = false);
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -153,7 +199,9 @@ class _LoginScreenState extends State<LoginScreen> {
               // Forgot Password
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton(
+                child: _isResettingPassword
+                    ? const CircularProgressIndicator()
+                    : TextButton(
                   onPressed: _resetPassword,
                   child: Text(
                     'نسيت كلمة المرور؟',
